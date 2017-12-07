@@ -7,7 +7,7 @@ from cat_net import experiment
 
 ### CONFIGURATION ###
 ### (defaults in __init__.py) ###
-config.data_dir = '/scratch/gridseth/data'
+config.data_dir = '/scratch/gridseth/data_test'
 config.results_dir = '/scratch/gridseth/results'
 
 config.experiment_name = 'nordland-small-test'
@@ -22,7 +22,7 @@ config.image_load_size = (240, 320) # (180, 320)  # H, W
 config.image_final_size = (192, 256) # (144, 256)  # H, W
 config.random_crop = True  # if True, crops load_size to final_size, else scales
 
-self.visualize = False
+config.visualize = False
 
 print(config)
 config.save_txt()
