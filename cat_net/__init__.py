@@ -46,6 +46,7 @@ class Config:
         self.plot_interval = 20  # batches
         self.save_interval = 5  # epochs
 
+        self.visualize = True
         self.visdom_port = 8097
 
     def save_txt(self):

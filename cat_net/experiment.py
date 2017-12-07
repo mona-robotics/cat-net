@@ -29,7 +29,9 @@ def train(model, train_data, val_data, resume_from_epoch=None):
         model.load_checkpoint(resume_from_epoch)
 
     ### TRAIN AND VALIDATE ###
-    visualizer = Visualizer()
+    visualizer = None
+    if config.visualize:
+        visualizer = Visualizer()
     epoch_avg_train_loss = {}
     epoch_avg_val_loss = {}
     best_total_val_loss = 1e12
@@ -56,7 +58,7 @@ def train(model, train_data, val_data, resume_from_epoch=None):
                     epoch_train_loss, model.get_errors())
 
             batches_processed += 1
-            if batches_processed % config.plot_interval:
+            if (config.visualize) and (batches_processed % config.plot_interval):
                 visualizer.show_images(model.get_images())
 
         this_epoch_avg_train_loss = utils.compute_dict_avg(epoch_train_loss)
@@ -95,8 +97,9 @@ def train(model, train_data, val_data, resume_from_epoch=None):
         # VISUALIZE
         errors = utils.tag_dict_keys(this_epoch_avg_train_loss, 'avg_train')
         errors.update(utils.tag_dict_keys(this_epoch_avg_val_loss, 'avg_val'))
-        visualizer.print_errors(errors)
-        visualizer.plot_errors(epoch, errors)
+        if config.visualize:
+            visualizer.print_errors(errors)
+            visualizer.plot_errors(epoch, errors)
 
         # SAVE
         model.save_checkpoint('latest')
