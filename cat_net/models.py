@@ -7,6 +7,7 @@ import os
 from . import config
 from . import utils
 from . import networks
+from . import pytorch_ssim
 
 
 class CATModel:
@@ -33,7 +34,10 @@ class CATModel:
         print('-' * 50 + '\n')
 
         # Set loss function
-        self.loss_function = nn.MSELoss()
+        #self.loss_function = nn.L1Loss()
+        #self.loss_function = pytorch_ssim.SSIM(window_size = 11)
+        self.loss_function = networks.L1GradLoss(self.use_cuda)  
+        # self.loss_function = nn.MSELoss()
 
         print('\n{:-^50}'.format(' Loss initialized '))
         print(self.loss_function)

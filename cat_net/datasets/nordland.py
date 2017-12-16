@@ -18,7 +18,7 @@ class Dataset:
        Reference: https://nrkbeta.no/2013/01/15/nordlandsbanen-minute-by-minute-season-by-season/
     """
 
-    def __init__(self, base_path, dataset, **kwargs):
+    def __init__(self, base_path, dataset, step, **kwargs):
         self.data_path = os.path.join(base_path, dataset)
         self.frames = kwargs.get('frames', None)
         self.rgb_dir = kwargs.get('rgb_dir', 'rgb')
@@ -26,8 +26,9 @@ class Dataset:
         self.rgb_files = sorted(glob.glob(
             os.path.join(self.data_path, self.rgb_dir, '*.png')))
 
-        if self.frames is not None:
-            self.rgb_files = [self.rgb_files[i] for i in self.frames]
+        temp_len = len(self.rgb_files)
+
+        self.rgb_files = [self.rgb_files[i] for i in range(temp_len) if (i % step) == 0]
 
         self.num_frames = len(self.rgb_files)
 
@@ -54,8 +55,8 @@ class Dataset:
 
 class TorchDataset(torch.utils.data.Dataset):
     def __init__(self, source_seq, target_seq, **kwargs):
-        self.source = Dataset(config.data_dir, source_seq, **kwargs)
-        self.target = Dataset(config.data_dir, target_seq, **kwargs)
+        self.source = Dataset(config.data_dir, source_seq, config.step, **kwargs)
+        self.target = Dataset(config.data_dir, target_seq, config.step, **kwargs)
 
     def __len__(self):
         return len(self.source)

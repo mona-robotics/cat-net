@@ -22,6 +22,7 @@ class Config:
         self.train_epochs = 100
         self.lr = 1e-4
 
+        self.step = 1
         self.batch_size = 16
         self.source_channels = 3
         self.output_channels = 3
@@ -51,6 +52,7 @@ class Config:
 
     def save_txt(self):
         save_dir = os.path.join(self.results_dir, self.experiment_name)
+        print(save_dir)
         os.makedirs(save_dir, exist_ok=True)
         save_file = os.path.join(save_dir, 'config.txt')
 

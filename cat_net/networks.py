@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+from torch.autograd import Variable
+from . import pytorch_ssim
 
 
 class UNet(nn.Module):
@@ -109,3 +111,139 @@ class SkipConnectionBlock(nn.Sequential):
     def forward(self, x):
         new_features = super().forward(x)
         return torch.cat([x, new_features], dim=1)
+
+def set_sobel_x_weights(conv):
+    conv.weight.data[:, :, 0, 0] = 0.5
+    conv.weight.data[:, :, 0, 1] = 0
+    conv.weight.data[:, :, 0, 2] = -0.5
+
+    conv.weight.data[:, :, 1, 0] = 1
+    conv.weight.data[:, :, 1, 1] = 0
+    conv.weight.data[:, :, 1, 2] = -1
+
+    conv.weight.data[:, :, 2, 0] = 0.5
+    conv.weight.data[:, :, 2, 1] = 0
+    conv.weight.data[:, :, 2, 2] = -0.5
+
+
+def set_sobel_y_weights(conv):
+    conv.weight.data[:, :, 0, 0] = 0.5
+    conv.weight.data[:, :, 0, 1] = 1
+    conv.weight.data[:, :, 0, 2] = 0.5
+
+    conv.weight.data[:, :, 1, 0] = 0
+    conv.weight.data[:, :, 1, 1] = 0
+    conv.weight.data[:, :, 1, 2] = 0
+
+    conv.weight.data[:, :, 2, 0] = -0.5
+    conv.weight.data[:, :, 2, 1] = -1
+    conv.weight.data[:, :, 2, 2] = -0.5
+
+
+class GradientLoss(nn.Module):
+    def __init__(self, use_cuda=False):
+        super().__init__()
+
+        self.sobel_x = torch.nn.Conv2d(3, 3, 3, stride=1, padding=1, bias=False)
+        set_sobel_x_weights(self.sobel_x)
+
+        self.sobel_y = torch.nn.Conv2d(3, 3, 3, stride=1, padding=1, bias=False)
+        set_sobel_y_weights(self.sobel_y)
+
+        if use_cuda:
+            self.sobel_x = self.sobel_x.cuda()
+            self.sobel_y = self.sobel_y.cuda()
+
+    def __call__(self, input, target):
+        grad_x = self.sobel_x.forward(input)
+        grad_y = self.sobel_y.forward(input)
+
+        grad = (grad_x**2 + grad_y**2).sum()
+        return -grad  # minimize the negative of the gradient magnitude
+
+class GradientLoss2(nn.Module):
+    def __init__(self, use_cuda=False):
+        super().__init__()
+
+        self.sobel_x = torch.nn.Conv2d(
+            3, 3, 3, stride=1, padding=1, bias=False)
+        set_sobel_x_weights(self.sobel_x)
+
+        self.sobel_y = torch.nn.Conv2d(
+            3, 3, 3, stride=1, padding=1, bias=False)
+        set_sobel_y_weights(self.sobel_y)
+
+        if use_cuda:
+            self.sobel_x = self.sobel_x.cuda()
+            self.sobel_y = self.sobel_y.cuda()
+
+    def __call__(self, input, target):
+        grad_x_input = self.sobel_x.forward(input)
+        grad_y_input = self.sobel_y.forward(input)
+
+        grad_x_target = self.sobel_x.forward(target)
+        grad_y_target = self.sobel_y.forward(target)
+
+        grad_input = (grad_x_input**2 + grad_y_input**2).sum()
+        grad_target = (grad_x_target**2 + grad_y_target**2).sum()
+        return grad_target - grad_input  # minimize the negative of the gradient magnitude
+
+class GradientLoss3(nn.Module):
+    def __init__(self, use_cuda=False):
+        super().__init__()
+
+        self.sobel_x = torch.nn.Conv2d(
+            3, 3, 3, stride=1, padding=1, bias=False)
+        set_sobel_x_weights(self.sobel_x)
+
+        self.sobel_y = torch.nn.Conv2d(
+            3, 3, 3, stride=1, padding=1, bias=False)
+        set_sobel_y_weights(self.sobel_y)
+
+        if use_cuda:
+            self.sobel_x = self.sobel_x.cuda()
+            self.sobel_y = self.sobel_y.cuda()
+
+    def __call__(self, input, target):
+        grad_x_input = self.sobel_x.forward(input)
+        grad_y_input = self.sobel_y.forward(input)
+
+        grad_x_target = self.sobel_x.forward(target)
+        grad_y_target = self.sobel_y.forward(target)
+
+        return (((grad_x_input - grad_x_target).abs() + (grad_y_input - grad_y_target).abs()).sum() /  input.data.nelement()) 
+
+class L1GradLoss(nn.Module):
+    def __init__(self, use_cuda=False):
+        super().__init__()
+        self.loss_l1 = nn.L1Loss()
+        self.loss_grad = GradientLoss3(use_cuda)
+
+    def __call__(self, input, target):
+
+        l1_loss = self.loss_l1(input, target)
+        grad_loss = self.loss_grad(input, target)
+        return l1_loss + grad_loss
+
+class L1SSIMLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.loss_l1 = nn.L1Loss()
+        self.loss_ssim = pytorch_ssim.SSIM(window_size = 11)
+
+    def __call__(self, input, target):
+
+        l1_loss = self.loss_l1(input, target)
+        ssim_loss = -self.loss_ssim(input, target)
+        return l1_loss + ssim_loss
+
+class RMSLogLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, input, target):
+
+        y = Variable(torch.Tensor([2]).cuda(async=True).float()) # numpy is double by default
+        tmp_input = input + y.expand(input.size())
+        tmp_target = target + y.expand(target.size())
+        return (((tmp_input.log() - tmp_target.log()) ** 2).sum() / input.data.nelement()).sqrt()
